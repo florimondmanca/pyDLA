@@ -1,24 +1,35 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
+from scipy.spatial.distance import cdist
 
 
 NPARTICLES = 100
 L = 100
+AGGR_R = 1  # aggregation radius
+CENTER = np.ones((1, 2)) * L / 2
 
 
-def randvel(temp=10):
-    return (2 * np.random.random((NPARTICLES, 2)) - 1) * temp
+def randvel(aggr, temp=10):
+    vel = (2 * np.random.random((NPARTICLES, 2)) - 1) * temp
+    vel[aggr] = 0  # aggregated particles don't move anymore
+    return vel
 
 
-def move(particles):
+def move(particles, aggr):
     particles['pos'] += particles['vel']
-    # constrain in box
     p = particles['pos']
+    # constrain in box
     p[p < 0] += L
     p[p > L] -= L
+    # aggregate to center :
+    # 1° compute distances to center
+    dist = cdist(p, CENTER)[:, 0]
+    # 2° aggregate (freeze) those that are near to it
+    aggr[dist < AGGR_R] = True
+
     # generate new velocities
-    particles['vel'] = randvel()
+    particles['vel'] = randvel(aggr)
 
 
 def initp():
@@ -27,13 +38,14 @@ def initp():
     x = L * np.random.random(NPARTICLES)
     y = L * np.random.random(NPARTICLES)
     particles['pos'] = np.column_stack((x, y))
-    particles['vel'] = randvel()
-    return particles
+    aggr = np.zeros(NPARTICLES, dtype=np.bool)
+    particles['vel'] = randvel(aggr)
+    return particles, aggr
 
 
 def anim():
     # simulation initialization
-    particles = initp()
+    particles, aggr = initp()
     # plot initialization
     dt = 1 / 30  # fps
     fig = plt.figure()
@@ -49,7 +61,7 @@ def anim():
 
     def animate(i):
         """perform animation step"""
-        move(particles)
+        move(particles, aggr)
         x = particles['pos'][:, 0]
         y = particles['pos'][:, 1]
         line.set_data(x, y)
