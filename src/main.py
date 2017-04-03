@@ -6,7 +6,7 @@ from scipy.spatial.distance import cdist
 
 NPARTICLES = 100
 L = 100
-AGGR_R = 1  # aggregation radius
+AGGR_R = 3  # aggregation radius
 CENTER = np.ones((1, 2)) * L / 2
 
 
@@ -23,11 +23,11 @@ def move(particles, aggr):
     p[p < 0] += L
     p[p > L] -= L
     # aggregate to center :
-    # 1° compute distances to center
-    dist = cdist(p, CENTER)[:, 0]
-    # 2° aggregate (freeze) those that are near to it
-    aggr[dist < AGGR_R] = True
-
+    # 1° compute distances from points to aggregation points
+    aggr_points = np.vstack((p[aggr], CENTER))
+    dist = cdist(p, aggr_points)
+    # 2° aggregate those near to aggregation points
+    aggr[np.any(dist < AGGR_R, axis=1)] = True
     # generate new velocities
     particles['vel'] = randvel(aggr)
 
@@ -38,6 +38,8 @@ def initp():
     x = L * np.random.random(NPARTICLES)
     y = L * np.random.random(NPARTICLES)
     particles['pos'] = np.column_stack((x, y))
+    # aggregation matrix. it is True for particles that aggregated
+    # and won't move in the future
     aggr = np.zeros(NPARTICLES, dtype=np.bool)
     particles['vel'] = randvel(aggr)
     return particles, aggr
@@ -52,7 +54,7 @@ def anim():
     ax = fig.add_subplot(111, aspect='equal', autoscale_on=False,
                          xlim=(0, L), ylim=(0, L))
     ax.grid()
-    line, = ax.plot([], [], 'bo', lw=2)
+    line, = ax.plot([], [], 'bo', lw=2, ms=2 * AGGR_R)
 
     def init():
         """initialize animation"""
