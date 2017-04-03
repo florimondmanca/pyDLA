@@ -5,9 +5,9 @@ import pygame
 
 
 NPARTICLES = 2000
-L = 400
-AGGR_R = 5  # aggregation radius
-centers = [(.5, .5), (.2, .8), (.8, .4), (.7, .65), (0.2, .15)]
+L = 500
+AGGR_R = 8  # aggregation radius
+centers = [(.5, .5), ]
 CENTERS = L * np.vstack(centers)
 
 
@@ -56,26 +56,32 @@ def pganim():
     size = (L, L)
     screen = pygame.display.set_mode(size)
     clock = pygame.time.Clock()
-    fps = 30
-    r = 1  # particle radius on graph
+    fps = 60
+    r = 2  # particle radius on graph
     while True:
-        t = time()
         clock.tick(fps)
         # update physics
-        move(particles, aggr, temp=10)
+        t = time()
+        move(particles, aggr, temp=3)
+        # print(1 / (time() - t))
         # plot the particles onto an image
         surf = np.zeros((L, L, 3))
         surf[:, :] = 255
         for pos, fixed in zip(particles['pos'], aggr):
             if fixed:
                 x, y = map(int, pos)
-                surf[x - r:x + r, y - r:y + r] = [150, 120, 200]
+                d = 1 - np.sqrt((x - L / 2)**2 + (y - L / 2)**2) / (L * .707)
+                surf[x - r:x + r, y - r:y + r] = [255 * d, 100 * d, 100 * d]
         # draw the image
         screen.blit(pygame.surfarray.make_surface(surf), (0, 0))
         pygame.display.flip()
-        print(1 / (time() - t))
         if pygame.event.peek(pygame.QUIT):
             print('exitting')
+            break
+        if np.all(aggr):
+            print('All particles aggregated.')
+            while not pygame.event.peek(pygame.QUIT):
+                clock.tick(fps)
             break
 
 
