@@ -1,38 +1,14 @@
 import numpy as np
-import matplotlib.pyplot as plt
-import matplotlib.animation as animation
 from scipy.spatial.distance import cdist
 from time import time
 import pygame
 
 
-NPARTICLES = 1000
+NPARTICLES = 2000
 L = 400
-AGGR_R = 6  # aggregation radius
-CENTER = np.ones((1, 2)) * L / 2
-
-
-def randvel(aggr):
-    vel = (2 * np.random.random((NPARTICLES, 2)) - 1)
-    vel[aggr] = 0  # aggregated particles don't move anymore
-    return vel
-
-
-def move(particles, aggr, temp=5):
-    # generate new velocities
-    particles['vel'] = randvel(aggr) * temp
-    # move
-    particles['pos'] += particles['vel']
-    p = particles['pos']
-    # constrain in box
-    p[p < 0] += L
-    p[p > L] -= L
-    # aggregate:
-    # 1° compute distances from points to aggregation points
-    aggr_points = np.vstack((p[aggr], CENTER))
-    dist = cdist(p, aggr_points)
-    # 2° aggregate those near to aggregation points
-    aggr[np.any(dist < AGGR_R, axis=1)] = True
+AGGR_R = 5  # aggregation radius
+centers = [(.5, .5), (.2, .8), (.8, .4), (.7, .65), (0.2, .15)]
+CENTERS = L * np.vstack(centers)
 
 
 def initp():
@@ -48,46 +24,32 @@ def initp():
     return particles, aggr
 
 
-def anim():
-    # simulation initialization
-    particles, aggr = initp()
-    # plot initialization
-    dt = 1 / 30  # fps
-    fig = plt.figure()
-    ax = fig.add_subplot(111, aspect='equal', autoscale_on=False,
-                         xlim=(0, L), ylim=(0, L))
-    ax.grid()
-    ax.set_xlabel(r'$x$')
-    ax.set_ylabel(r'$y$')
-    moving, = ax.plot([], [], 'bo')
-    fixed, = ax.plot([], [], 'ro')
+def randvel(aggr):
+    angle = np.random.random(NPARTICLES) * 2 * np.pi
+    c = np.cos(angle)
+    s = np.sin(angle)
+    vel = np.column_stack((c, s))
+    vel[aggr] = 0  # aggregated particles don't move anymore
+    return vel
 
-    def init():
-        """initialize animation"""
-        moving.set_data([], [])
-        fixed.set_data([], [])
-        return moving, fixed
 
-    def animate(i):
-        """perform animation step"""
-        t = time()
-        move(particles, aggr)
-        moving_p = particles['pos'][~aggr]
-        fixed_p = particles['pos'][aggr]
-        moving.set_data(moving_p[:, 0], moving_p[:, 1])
-        fixed.set_data(fixed_p[:, 0], fixed_p[:, 1])
-        print(time() - t)
-        return moving, fixed
-
-    t0 = time()
-    animate(0)
-    t1 = time()
-    interval = 1000 * dt - (t1 - t0)
-
-    ani = animation.FuncAnimation(fig, animate, frames=int(1 / dt),
-                                  interval=interval, blit=False,
-                                  init_func=init)
-    plt.show()
+def move(particles, aggr, temp=5):
+    # generate new velocities
+    particles['vel'] = randvel(aggr) * temp
+    # move
+    particles['pos'] += particles['vel']
+    p = particles['pos']
+    # constrain in box
+    p[p < 0] += L
+    p[p > L] -= L
+    # aggregate:
+    # 1° compute distances from points to aggregation points
+    aggr_points = np.vstack((p[aggr], CENTERS))
+    dist = cdist(p, aggr_points)
+    # 2° aggregate those near to aggregation points
+    agg = np.any(dist < AGGR_R, axis=1)
+    aggr[agg] = True
+    particles['vel'][agg] = 0
 
 
 def pganim():
@@ -95,25 +57,21 @@ def pganim():
     size = (L, L)
     screen = pygame.display.set_mode(size)
     clock = pygame.time.Clock()
-    fps = 60
-    r = AGGR_R // 6  # particle radius on graph
+    fps = 30
+    r = 1  # particle radius on graph
     while True:
         t = time()
-        screen.fill((255, 255, 255))
         clock.tick(fps)
         # update physics
         move(particles, aggr, temp=6)
         # plot the particles onto an image
-        surf = np.ones((*size, 3)) * 255
-        moving_p = particles['pos'][~aggr]
-        for x, y in moving_p:
-            a, b = int(x), int(y)
-            surf[a - r:a + r, b - r:b + r] = (255, 0, 0)
-        fixed_p = particles['pos'][aggr]
-        for x, y in fixed_p:
-            a, b = int(x), int(y)
-            surf[a - r:a + r, b - r:b + r] = (0, 0, 0)
-        # draw the array
+        surf = np.zeros((L, L, 3))
+        surf[:, :] = 255
+        for pos, fixed in zip(particles['pos'], aggr):
+            if fixed:
+                x, y = map(int, pos)
+                surf[x - r:x + r, y - r:y + r] = [150, 120, 200]
+        # draw the image
         screen.blit(pygame.surfarray.make_surface(surf), (0, 0))
         pygame.display.flip()
         # print(1 / (time() - t))
