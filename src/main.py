@@ -25,10 +25,7 @@ def initp():
 
 
 def randvel(aggr):
-    angle = np.random.random(NPARTICLES) * 2 * np.pi
-    c = np.cos(angle)
-    s = np.sin(angle)
-    vel = np.column_stack((c, s))
+    vel = np.random.randn(NPARTICLES, 2)
     vel[aggr] = 0  # aggregated particles don't move anymore
     return vel
 
@@ -43,13 +40,15 @@ def move(particles, aggr, temp=5):
     p[p < 0] += L
     p[p > L] -= L
     # aggregate:
-    # 1° compute distances from points to aggregation points
-    aggr_points = np.vstack((p[aggr], CENTERS))
-    dist = cdist(p, aggr_points)
+    # 1° compute distances from non-aggregated points to aggregated points
+    nonagged = p[~aggr]
+    agged = np.vstack((p[aggr], CENTERS))
+    dist = cdist(nonagged, agged)
     # 2° aggregate those near to aggregation points
-    agg = np.any(dist < AGGR_R, axis=1)
-    aggr[agg] = True
-    particles['vel'][agg] = 0
+    whereagg = np.zeros(aggr.shape, dtype=np.bool)
+    whereagg[~aggr] = np.any(dist < AGGR_R, axis=1)
+    aggr[whereagg] = True
+    # particles['vel'][agg] = 0
 
 
 def pganim():
@@ -63,7 +62,7 @@ def pganim():
         t = time()
         clock.tick(fps)
         # update physics
-        move(particles, aggr, temp=6)
+        move(particles, aggr, temp=10)
         # plot the particles onto an image
         surf = np.zeros((L, L, 3))
         surf[:, :] = 255
@@ -74,7 +73,7 @@ def pganim():
         # draw the image
         screen.blit(pygame.surfarray.make_surface(surf), (0, 0))
         pygame.display.flip()
-        # print(1 / (time() - t))
+        print(1 / (time() - t))
         if pygame.event.peek(pygame.QUIT):
             print('exitting')
             break
