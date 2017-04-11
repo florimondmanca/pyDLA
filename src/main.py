@@ -23,11 +23,9 @@ DIR_ROLL = {
     'left': (-1, 0),
     'right': (1, 0),
 }
-N_MASK = np.array([
-    [1, 1, 1],
-    [1, 0, 1],
-    [1, 1, 1],
-])
+N_MASK = np.array([[1, 1, 1],
+                   [1, 0, 1],
+                   [1, 1, 1]])
 
 
 def shapenize(shape):
@@ -47,7 +45,8 @@ def make(shape, density=.25):
     shape = shapenize(shape)
     lattice = empty(shape)
     lattice[np.random.random(shape) < density] = MOBILE
-    lattice[:, -1] = FIXED
+    cx, cy = map(int, np.array(lattice.shape) / 2)
+    lattice[cx, cy] = FIXED
     return lattice
 
 
@@ -57,21 +56,19 @@ def evolve(lattice):
     for d in M:
         shift, axis = DIR_ROLL[d]
         willmove_d = mobile * (np.random.random(lattice.shape) < .75)
-        free_d = convolve2d(
-            lattice, M[d], mode='same') == 0
+        free_d = convolve2d(lattice, M[d], mode='same') == 0
         move_d = willmove_d * free_d
         lattice[move_d] = EMPTY
         lattice[np.roll(move_d, shift, axis)] = MOBILE
         mobile = lattice == MOBILE
-    # fixed particles absorb mobile particles that are near neighbors
+    # fixed particles absorb mobile particles nearby
     fixed = lattice == FIXED
-    has_fixed_ngbr = mobile * (
-        convolve2d(fixed, N_MASK, mode='same') >= 1)
+    has_fixed_ngbr = mobile * (convolve2d(fixed, N_MASK, mode='same') >= 1)
     lattice[has_fixed_ngbr] = FIXED
     return lattice
 
 
-def zoomit(lattice, size=None, default_size=750):
+def zoomit(lattice, size=None, default_size=600):
     if size is None:
         size = default_size
     if size < max(lattice.shape):
@@ -82,7 +79,6 @@ def zoomit(lattice, size=None, default_size=750):
 
 
 def show(lattice, fps=30):
-    # from time import time
     zoomed = zoomit(lattice)
     windowsize = zoomed.shape
     pygame.init()
@@ -92,9 +88,7 @@ def show(lattice, fps=30):
         running = True
         while running:
             clock.tick(fps)
-            # t = time()
             lattice = evolve(lattice)
-            # print(1 / (time() - t))
             zoomed = zoomit(lattice)
             carr = np.zeros((*zoomed.shape, 3))
             for T, C in COLORS.items():
@@ -109,4 +103,4 @@ def show(lattice, fps=30):
 
 
 if __name__ == '__main__':
-    show(make(400))
+    show(make(200))
